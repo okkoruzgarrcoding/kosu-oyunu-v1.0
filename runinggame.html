@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Sonsuz Koşu Oyunu</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #111;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            overflow: hidden;
+            color: white;
+            font-family: sans-serif;
+            touch-action: none;
+        }
+        canvas {
+            border: 4px solid #333;
+            background: #1a1a1a;
+            box-shadow: 0 0 20px rgba(0,0,0,0.8);
+        }
+        #scoreBoard {
+            font-size: 20px;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="scoreBoard">Skor: <span id="score">0</span></div>
+    <canvas id="gameCanvas" width="360" height="600"></canvas>
+
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        const scoreElement = document.getElementById("score");
+
+        let score = 0;
+        let isGameOver = false;
+
+        // Karakter
+        let player = {
+            x: canvas.width / 2 - 20,
+            y: canvas.height - 80,
+            width: 40,
+            height: 40,
+            speed: 6
+        };
+
+        // Engeller
+        let obstacles = [];
+        let frameCount = 0;
+
+        // Kontroller (Dokunma ve Klavye)
+        let targetX = player.x;
+
+        window.addEventListener("mousemove", (e) => {
+            let rect = canvas.getBoundingClientRect();
+            targetX = e.clientX - rect.left - player.width / 2;
+        });
+
+        window.addEventListener("touchmove", (e) => {
+            let rect = canvas.getBoundingClientRect();
+            targetX = e.touches[0].clientX - rect.left - player.width / 2;
+            e.preventDefault();
+        }, { passive: false });
+
+        window.addEventListener("keydown", (e) => {
+            if (e.key === "ArrowLeft" || e.key === "a") player.x -= 20;
+            if (e.key === "ArrowRight" || e.key === "d") player.x += 20;
+        });
+
+        function spawnObstacle() {
+            let minWidth = 30;
+            let maxWidth = 120;
+            let w = Math.floor(Math.random() * (maxWidth - minWidth + 1)) + minWidth;
+            let x = Math.random() * (canvas.width - w);
+            obstacles.push({ x: x, y: -40, width: w, height: 30, speed: 4 });
+        }
+
+        function update() {
+            if (isGameOver) return;
+
+            // Karakteri yumuşakça imlece/parmağa taşı
+            player.x += (targetX - player.x) * 0.2;
+
+            // Sınırlar
+            if (player.x < 0) player.x = 0;
+            if (player.x > canvas.width - player.width) player.x = canvas.width - player.width;
+
+            // Engel üretme sıklığı
+            frameCount++;
+            if (frameCount % 50 === 0) {
+                spawnObstacle();
+            }
+
+            // Engelleri hareket ettir
+            for (let i = obstacles.length - 1; i >= 0; i--) {
+                obstacles[i].y += obstacles[i].speed;
+
+                // Çarpışma kontrolü (AABB)
+                if (
+                    player.x < obstacles[i].x + obstacles[i].width &&
+                    player.x + player.width > obstacles[i].x &&
+                    player.y < obstacles[i].y + obstacles[i].height &&
+                    player.y + player.height > obstacles[i].y
+                ) {
+                    isGameOver = true;
+                }
+
+                // Ekrandan çıkan engelleri sil
+                if (obstacles[i].y > canvas.height) {
+                    obstacles.splice(i, 1);
+                    score += 10;
+                    scoreElement.innerText = score;
+                }
+            }
+        }
+
+        function draw() {
+            // Ekranı temizle
+            ctx.fillStyle = "#1a1a1a";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            if (!isGameOver) {
+                // Karakteri çiz (Yeşil)
+                ctx.fillStyle = "#2ecc71";
+                ctx.fillRect(player.x, player.y, player.width, player.height);
+
+                // Engelleri çiz (Kırmızı)
+                ctx.fillStyle = "#e74c3c";
+                obstacles.forEach(obs => {
+                    ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
+                });
+            } else {
+                // Oyun Bitti Ekranı
+                ctx.fillStyle = "white";
+                ctx.font = "28px sans-serif";
+                ctx.textAlign = "center";
+                ctx.fillText("OYUN BİTTİ!", canvas.width / 2, canvas.height / 2 - 20);
+                
+                ctx.font = "16px sans-serif";
+                ctx.fillText("Yeniden başlamak için tıkla", canvas.width / 2, canvas.height / 2 + 20);
+            }
+        }
+
+        function loop() {
+            update();
+            draw();
+            requestAnimationFrame(loop);
+        }
+
+        // Yeniden başlatma
+        window.addEventListener("click", () => {
+            if (isGameOver) {
+                isGameOver = false;
+                obstacles = [];
+                score = 0;
+                scoreElement.innerText = score;
+                frameCount = 0;
+            }
+        });
+
+        loop();
+    </script>
+</body>
+</html>
